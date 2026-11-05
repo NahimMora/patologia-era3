@@ -89,7 +89,7 @@ function aimg(id,anns,opt){
   opt=opt||{}; var m=IMG[id]; if(!m)return '<div class="note">[imagen no disponible]</div>';
   var sc=opt.scale||(Math.min(m.w,700)/m.w);
   var st=opt.fit?' style="width:min(100%,calc('+opt.fit+'vh*'+(m.w/m.h).toFixed(4)+'));margin:0 auto"':'';
-  return '<span class="aimg" data-img="'+esc(id)+'"'+st+'><img src="'+m.f+'" width="'+m.w+'" height="'+m.h+'" alt="'+esc(opt.alt||'Imagen de estudio')+'" loading="lazy" decoding="async"><svg viewBox="0 0 '+m.w+' '+m.h+'" preserveAspectRatio="none" aria-hidden="true">'+(anns?annSVG(m.w,m.h,anns,sc):'')+'</svg></span>';
+  return '<span class="aimg" data-img="'+esc(id)+'"'+st+'><img src="'+m.f+'" width="'+m.w+'" height="'+m.h+'" alt="'+esc(opt.alt||'Imagen de estudio')+'" '+(opt.lazy?'loading="lazy" ':'')+'decoding="async"><svg viewBox="0 0 '+m.w+' '+m.h+'" preserveAspectRatio="none" aria-hidden="true">'+(anns?annSVG(m.w,m.h,anns,sc):'')+'</svg></span>';
 }
 
 /* ---------- lightbox con zoom ---------- */
