@@ -107,7 +107,7 @@ function renderHome(){
   CAT.forEach(function(m){var s=S.seen[m.id];if(s){prog+=s.p||0;if(s.k==='done')done++;}});
   for(var k in S.ans){var r=S.ans[k];if(r.k==='t'){tA++;if(r.ok)tC++;}else{vA++;if(r.ok)vC++;}}
   var P=Math.round(prog/CAT.length);
-  var h='<section class="hero"><span class="examchip">📅 Examen: jueves 5/11</span><h1>Patología <em>ERA 3</em></h1><p>Aprendé a reconocer las imágenes que necesitás para rendir.</p>'+
+  var h='<section class="hero"><span class="examchip">📅 Parciales: viernes y lunes</span><h1>Patología <em>ERA 3</em></h1><p>Aprendé a reconocer las imágenes que necesitás para rendir.</p>'+
    '<div class="hero-row"><div class="ringwrap">'+ring(P,'#ffd23f')+'<div><b>Progreso total</b><span>'+done+' de '+CAT.length+' capítulos completos</span></div></div>'+
    '<div class="minis"><div class="mini"><b>'+(tA?pct(tC,tA)+'%':'—')+'</b><span>Teoría · '+tA+' resp.</span></div><div class="mini"><b>'+(vA?pct(vC,vA)+'%':'—')+'</b><span>Imágenes · '+vA+' resp.</span></div></div></div></section>';
   if(S.last&&meta(S.last.m)&&meta(S.last.m).status==='ready'){var lm=meta(S.last.m);h+='<a class="cont" href="#/m/'+lm.id+'/'+(S.last.s||'recorrido')+'" style="--sys:'+SYS[lm.sys]+'">'+(IMG[lm.cover]?'<img src="'+IMG[lm.cover].f+'" alt="">':'')+'<div><small>Continuar</small><b>Cap. '+lm.num+' · '+esc(lm.title)+'</b></div><span class="go">'+ic('chev')+'</span></a>';}
