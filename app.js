@@ -110,6 +110,7 @@ function renderHome(){
   var h='<section class="hero"><span class="examchip">📅 Parciales: viernes y lunes</span><h1>Patología <em>ERA 3</em></h1><p>Aprendé a reconocer las imágenes que necesitás para rendir.</p>'+
    '<div class="hero-row"><div class="ringwrap">'+ring(P,'#ffd23f')+'<div><b>Progreso total</b><span>'+done+' de '+CAT.length+' capítulos completos</span></div></div>'+
    '<div class="minis"><div class="mini"><b>'+(tA?pct(tC,tA)+'%':'—')+'</b><span>Teoría · '+tA+' resp.</span></div><div class="mini"><b>'+(vA?pct(vC,vA)+'%':'—')+'</b><span>Imágenes · '+vA+' resp.</span></div></div></div></section>';
+  h+='<a class="excta" href="#/examen"><span>🎯</span><div><b>Examen completo · todo mezclado</b><small>40 choice teóricos + 25 imágenes · dificultad alta · corrección al instante</small></div>'+ic('chev')+'</a>';
   if(S.last&&meta(S.last.m)&&meta(S.last.m).status==='ready'){var lm=meta(S.last.m);h+='<a class="cont" href="#/m/'+lm.id+'/'+(S.last.s||'recorrido')+'" style="--sys:'+SYS[lm.sys]+'">'+(IMG[lm.cover]?'<img src="'+IMG[lm.cover].f+'" alt="">':'')+'<div><small>Continuar</small><b>Cap. '+lm.num+' · '+esc(lm.title)+'</b></div><span class="go">'+ic('chev')+'</span></a>';}
   var groups=[];CAT.forEach(function(m){var g=groups.filter(function(x){return x.sys===m.sys;})[0];if(!g){g={sys:m.sys,list:[]};groups.push(g);}g.list.push(m);});
   groups.forEach(function(g){
@@ -347,11 +348,82 @@ function drawSim(def,st,part){
   $app.querySelectorAll('[data-show]').forEach(function(b){b.onclick=function(){st.shown[+b.dataset.show]=1;var y=window.scrollY;drawSim(def,st,part);window.scrollTo(0,y);};});
   $app.querySelectorAll('[data-c]').forEach(function(c){c.onchange=function(){draft(c.dataset.c,c.checked?'1':'0');};});
 }
+/* ---------- EXAMEN COMPLETO (todo mezclado) ---------- */
+var EXQ={m2v08:'Pieza de histerectomía. ¿Qué es el nódulo blanco marcado, por fuera del útero?',m4v12:'Lesión del pene a mayor aumento. ¿Qué marcan los círculos?'};
+var EXT={'FOTO-P069':'cito','FOTO-P064':'cito','FOTO-P010':'macro','FOTO-P049C':'macro','FOTO-P038':'macro','FOTO-P030':'macro','FLASH-P033-F02':'micro'};
+var EXK='pato3.exam',EXN={t:40,v:25},MODS6=['m1','m2','m3','m4','m5','m6'];
+var SYSOF={m1:'Femenino',m2:'Femenino',m3:'Femenino',m4:'Masculino',m5:'Piel',m6:'Linfomas y tiroides'};
+function exLoad(){try{var x=JSON.parse(localStorage.getItem(EXK)||'null');if(x&&x.seed)return x;}catch(e){}var n={seed:(Date.now()^0x5bd1e995)>>>0,c1:{},c2:{},t0:Date.now()};exSave(n);return n;}
+function exSave(x){try{localStorage.setItem(EXK,JSON.stringify(x));}catch(e){}}
+function exBuild(E){
+  /* teoría: niveles 2–4, repartido entre los 6 capítulos y mezclado */
+  var per={},t=[];MODS6.forEach(function(m,i){var M=window.PATO_MOD[m];per[m]=seeded((M.theory||[]).filter(function(q){return q.lvl>=2;}),E.seed+i*7919);});
+  var k=0;while(t.length<EXN.t){var any=false;MODS6.forEach(function(m){if(t.length<EXN.t&&per[m][k]){t.push(per[m][k]);any=true;}});if(!any)break;k++;}
+  /* imágenes: niveles 2–4, sin repetir la misma foto */
+  var pv={},v=[],used={};MODS6.forEach(function(m,i){var M=window.PATO_MOD[m];pv[m]=seeded((M.visual||[]).filter(function(q){return q.lvl>=2;}),E.seed+i*104729);});
+  k=0;while(v.length<EXN.v){var an=false;MODS6.forEach(function(m){var q=pv[m][k];if(q){an=true;if(v.length<EXN.v&&!used[q.img]){used[q.img]=1;v.push(q);}}});if(!an)break;k++;}
+  return {t:seeded(t,E.seed^0x9e3779b9),v:seeded(v,E.seed^0x7f4a7c15)};
+}
+function exDesc(q){var m=q.id.slice(0,2),A=(window.PATO_MOD[m]||{}).atlas||[],a=null;for(var i=0;i<A.length;i++)if(A[i].img===q.img){a=A[i];break;}
+  if(!a)for(var j=0;j<MODS6.length&&!a;j++){var B=window.PATO_MOD[MODS6[j]].atlas||[];for(var z=0;z<B.length;z++)if(B[z].img===q.img){a=B[z];break;}}
+  var T={macro:'MACRO',micro:'MICRO',cito:'CITOLOGÍA'};
+  if(a)return '<div class="exdesc '+a.tipo+'"><span class="xt">'+T[a.tipo]+'</span><b>'+a.dx+'</b><p>'+a.desc+'</p>'+(a.extra?'<p class="mut">'+a.extra+'</p>':'')+'</div>';
+  var tp=EXT[q.img]||'micro';return q.obs?'<div class="exdesc '+tp+'"><span class="xt">'+T[tp]+'</span><b>'+q.o[q.a]+'</b><p>'+q.obs+'</p></div>':'';}
+function renderExam(part){
+  document.documentElement.style.setProperty('--sys','#c2185b');
+  $app.innerHTML='<p class="loading">Armando el examen…</p>';
+  Promise.all(MODS6.map(function(m){return loadMod(m).catch(function(){return null;});})).then(function(){
+    var E=exLoad(),Q=exBuild(E);drawExam(E,Q,part==='2'?'2':(part==='1'?'1':'0'));window.scrollTo(0,0);});
+}
+function drawExam(E,Q,part){
+  var L='ABCD';
+  function sc(list,ch){var a=0,c=0;list.forEach(function(q){if(ch[q.id]!=null){a++;if(ch[q.id]===q.a)c++;}});return {a:a,c:c,n:list.length};}
+  var s1=sc(Q.t,E.c1),s2=sc(Q.v,E.c2);
+  var tabs='<nav class="snav"><a class="stab" href="#/examen" aria-current="'+(part==='0')+'">🎯 Examen</a><a class="stab" href="#/examen/1" aria-current="'+(part==='1')+'">1 · Choice '+(s1.a===s1.n?'<span class="done">✓</span>':s1.a+'/'+s1.n)+'</a><a class="stab" href="#/examen/2" aria-current="'+(part==='2')+'">2 · Imágenes '+(s2.a===s2.n?'<span class="done">✓</span>':s2.a+'/'+s2.n)+'</a></nav>';
+  var h='';
+  if(part==='0'){
+    var tot=s1.c+s2.c,N=s1.n+s2.n,ans=s1.a+s2.a;
+    h+='<div class="sh"><div><h2 style="font-size:1.7rem">Examen completo</h2><p>Simulá el parcial real: todos los temas mezclados (cuello, útero, ovario, mama, pene, próstata, testículo, piel, linfomas y tiroides), dificultad alta (niveles 2 a 4, con confusiones típicas). Cada respuesta se corrige al instante.</p></div></div>';
+    h+='<div class="exgrid"><a class="exbig" href="#/examen/1"><span class="exn">1</span><div><b>Choice teórico</b><small>'+s1.n+' preguntas mezcladas · '+(s1.a?s1.c+' bien de '+s1.a:'sin empezar')+'</small></div>'+ring(pct(s1.a,s1.n),'#c2185b',52,6)+'</a>';
+    h+='<a class="exbig" href="#/examen/2"><span class="exn">2</span><div><b>Choice de imágenes</b><small>'+s2.n+' imágenes · al responder ves la descripción macro / micro · '+(s2.a?s2.c+' bien de '+s2.a:'sin empezar')+'</small></div>'+ring(pct(s2.a,s2.n),'#5b3fd0',52,6)+'</a></div>';
+    if(ans)h+=exResult(Q,E,s1,s2);
+    h+='<div class="cta" style="justify-content:center;margin-top:18px"><button class="btn ghost" id="exnew">'+ic('refresh')+' Nuevo examen (otras preguntas)</button></div>';
+  } else {
+    var list=part==='1'?Q.t:Q.v,ch=part==='1'?E.c1:E.c2,s=part==='1'?s1:s2;
+    h+='<div class="exbar"><div><b>'+(part==='1'?'Parte 1 · Choice teórico':'Parte 2 · Choice de imágenes')+'</b><span>'+s.a+'/'+s.n+' respondidas · <em class="okc">'+s.c+' ✔</em> · <em class="badc">'+(s.a-s.c)+' ✘</em></span></div><div class="pbar"><i style="width:'+pct(s.a,s.n)+'%"></i></div></div>';
+    h+='<div class="qlist'+(part==='2'?' exv':'')+'">'+list.map(function(q,i){
+      var c=ch[q.id],done=c!=null,ok=c===q.a,opts=seeded(q.o.map(function(t,k){return {t:t,k:k};}),hash(q.id)^E.seed);
+      var img=part==='2'?'<div class="qimg exi"'+zoomAttr(q.img,done?q.ann:(q.pre||null),done?esc(q.o[q.a]):'Imagen '+(i+1))+'>'+fit(q.img,done?q.ann:(q.pre||null),'100%','Imagen de la pregunta '+(i+1))+'<span class="zoomhint">'+ic('zoom')+'</span></div>':'';
+      var fb='';
+      if(done){fb='<div class="fb '+(ok?'ok':'bad')+'"><h4>'+(ok?'✔ ¡Correcto!':'✘ Incorrecto — era: '+q.o[q.a])+'</h4>';
+        if(!ok&&q.wr&&q.wr[c])fb+='<p><b>Por qué no «'+q.o[c]+'»:</b> '+q.wr[c]+'</p>';
+        if(part==='1')fb+='<p>'+q.why+'</p>';else fb+=exDesc(q)+(q.where?'<p><b>Dónde mirar:</b> '+q.where+'</p>':'')+(q.conf?'<p><b>Lo confirma:</b> '+q.conf+'</p>':'');
+        if(q.key)fb+='<div class="key">🔑 <span>'+q.key+'</span></div>';fb+='</div>';}
+      return '<article class="qcard'+(done?(ok?' ok':' bad'):'')+'" id="x_'+q.id+'"><div class="qmeta"><span class="qno">'+(i+1)+'</span>'+(done?'<span class="lv">'+esc(SYSOF[q.id.slice(0,2)])+(q.topic?' · '+esc(q.topic):'')+'</span>':'<span class="lv">'+(part==='1'?'Teórico':'Imagen')+'</span>')+'</div>'+img+'<div class="qt">'+(EXQ[q.id]||q.q)+'</div><div class="opts">'+opts.map(function(o,j){var cl='';if(done){if(o.k===q.a)cl=' ok';else if(o.k===c)cl=' bad';else cl=' dim';}return '<button class="opt'+cl+'" data-q="'+q.id+'" data-k="'+o.k+'" '+(done?'disabled':'')+'><span class="L">'+L[j]+'</span><span>'+o.t+'</span></button>';}).join('')+'</div>'+fb+'</article>';}).join('')+'</div>';
+    if(s.a===s.n)h+=exResult(Q,E,s1,s2);
+    h+='<div class="cta" style="justify-content:center;margin-top:16px">'+(part==='1'?'<a class="btn sys" href="#/examen/2">Ir a la parte 2 · Imágenes '+ic('chev')+'</a>':'<a class="btn sys" href="#/examen">Ver resultado del examen '+ic('chev')+'</a>')+'</div>';
+  }
+  $app.innerHTML=tabs+h;
+  $app.querySelectorAll('.opt:not(:disabled)').forEach(function(b){b.onclick=function(){
+    var id=b.dataset.q,k=+b.dataset.k,lst=part==='1'?Q.t:Q.v,q=lst.filter(function(z){return z.id===id;})[0];
+    (part==='1'?E.c1:E.c2)[id]=k;exSave(E);record(q,id.slice(0,2),part==='1'?'t':'v',k);updateBadge();
+    var y=window.scrollY;drawExam(E,Q,part);window.scrollTo(0,y);
+    var f=document.querySelector('#x_'+id+' .fb');if(f&&f.scrollIntoView)setTimeout(function(){f.scrollIntoView({behavior:'smooth',block:'nearest'});},60);};});
+  var nw=document.getElementById('exnew');if(nw)nw.onclick=function(){if(!window.confirm('¿Empezar un examen nuevo? Se borran las respuestas de este examen (tus errores quedan guardados).'))return;try{localStorage.removeItem(EXK);}catch(e){}renderExam('0');};
+}
+function exResult(Q,E,s1,s2){
+  var by={};function add(q,ch){var k=SYSOF[q.id.slice(0,2)];by[k]=by[k]||{a:0,c:0};if(ch[q.id]!=null){by[k].a++;if(ch[q.id]===q.a)by[k].c++;}}
+  Q.t.forEach(function(q){add(q,E.c1);});Q.v.forEach(function(q){add(q,E.c2);});
+  var tot=s1.c+s2.c,ans=s1.a+s2.a,p=pct(tot,ans),fin=s1.a===s1.n&&s2.a===s2.n;
+  return '<div class="blk exres"><div class="eyebrow">'+(fin?'Resultado final':'Resultado parcial')+'</div><div class="exsc">'+ring(p,p>=60?'#2e9e5b':'#d64545',74,8)+'<div><b>'+tot+' / '+ans+'</b><span>Teórico '+s1.c+'/'+s1.a+' · Imágenes '+s2.c+'/'+s2.a+'</span><span class="'+(p>=60?'okc':'badc')+'">'+(p>=60?'Aprobarías (≥ 60 %) 💪':'Todavía no llega al 60 %: repasá los temas flojos')+'</span></div></div>'+
+   '<div class="exsys">'+Object.keys(by).map(function(k){var x=by[k],pp=pct(x.c,x.a);return '<div><span>'+esc(k)+'</span><div class="pbar"><i style="width:'+pp+'%;background:'+(pp>=60?'#2e9e5b':'#d64545')+'"></i></div><b>'+(x.a?pp+'%':'—')+'</b></div>';}).join('')+'</div>'+
+   '<div class="cta" style="margin-top:10px"><a class="btn ghost sm" href="#/errores">'+ic('flag')+' Repasar mis errores</a></div></div>';
+}
 /* ---------- router ---------- */
 function updateBadge(){var e=document.getElementById('errbadge');if(e){var n=errCount();e.textContent=n;e.hidden=!n;}}
 function route(){
   closeLB();var p=(location.hash.replace(/^#\/?/,'')||'').split('/');
-  if(p[0]==='m'&&p[1])renderModule(p[1],p[2],p[3]);else if(p[0]==='errores')renderErrores();else if(p[0]==='progreso')renderProgreso();else if(p[0]==='simulacro'){if(p[1])renderSim(p[1],p[2]);else renderSimList();}else renderHome();
+  if(p[0]==='m'&&p[1])renderModule(p[1],p[2],p[3]);else if(p[0]==='errores')renderErrores();else if(p[0]==='progreso')renderProgreso();else if(p[0]==='examen')renderExam(p[1]||'0');else if(p[0]==='simulacro'){if(p[1])renderSim(p[1],p[2]);else renderSimList();}else renderHome();
   updateBadge();
 }
 window.addEventListener('hashchange',route);
