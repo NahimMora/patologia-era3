@@ -122,7 +122,8 @@ function renderHome(){
     });h+='</div>';
   });
   var ec=errCount();
-  h+='<a class="errcta" href="#/errores"><span class="bub">'+ic('flag')+'</span><div><b>Repasar mis errores</b><div style="color:var(--muted);font-size:.85rem">'+(ec?ec+' preguntas para repasar de todos los capítulos':'Cuando falles una pregunta, aparece acá')+'</div></div>'+ic('chev')+'</a>';
+  h+='<a class="errcta" href="#/simulacro" style="margin-top:22px;border-style:solid;border-color:#5b3fd0"><span class="bub" style="background:#ece8ff;color:#5b3fd0">📝</span><div><b>Simulacro de parcial</b><div style="color:var(--muted);font-size:.85rem">10 choice + casos de imágenes, como el examen modelo de la profe</div></div>'+ic('chev')+'</a>';
+  h+='<a class="errcta" href="#/errores" style="margin-top:12px"><span class="bub">'+ic('flag')+'</span><div><b>Repasar mis errores</b><div style="color:var(--muted);font-size:.85rem">'+(ec?ec+' preguntas para repasar de todos los capítulos':'Cuando falles una pregunta, aparece acá')+'</div></div>'+ic('chev')+'</a>';
   h+='<p class="footer">Imágenes de los materiales de la cátedra (Foto.pdf, PATO-REPASO.pdf, flashcards), solo para estudio.<br>El progreso se guarda en este dispositivo · <a href="#/progreso">exportar / importar</a></p>';
   $app.innerHTML=h;
 }
@@ -284,11 +285,73 @@ function renderProgreso(){
   document.getElementById('imp').onchange=function(e){var f=e.target.files[0];if(!f)return;var rd=new FileReader();rd.onload=function(){try{var o=JSON.parse(rd.result);if(!o||typeof o.ans!=='object')throw 0;var n=0;for(var k in o.ans){var a=o.ans[k],c=S.ans[k];if(!c||(a.t||0)>(c.t||0)){S.ans[k]=a;n++;}}for(var k2 in (o.vid||{})){var a2=o.vid[k2],c2=S.vid[k2];if(!c2||(a2.p||0)>(c2.p||0))S.vid[k2]=a2;}save();renderProgreso();document.getElementById('msg').textContent='Listo: '+n+' respuestas importadas.';}catch(err){document.getElementById('msg').textContent='Ese archivo no es un progreso válido.';}};rd.readAsText(f);};
   document.getElementById('rst').onclick=function(){if(window.confirm('¿Seguro? Se borran todas tus respuestas en este dispositivo.')){S={ans:{},vid:{},seen:{},last:null};save();renderProgreso();}};
 }
+
+/* ---------- SIMULACRO DE PARCIAL ---------- */
+var SIMST={};
+function loadSim(){return window.PATO_SIM?Promise.resolve(window.PATO_SIM):loadScript('data/sim.js?v='+Date.now()).then(function(){return window.PATO_SIM;});}
+function draft(k,v){try{if(v===undefined)return localStorage.getItem('pato3.sim.'+k)||'';localStorage.setItem('pato3.sim.'+k,v);}catch(e){return '';}}
+function renderSimList(){
+  document.documentElement.style.setProperty('--sys','#5b3fd0');
+  $app.innerHTML='<p class="loading">Cargando…</p>';
+  loadSim().then(function(SIM){
+    var h='<div class="sh"><div><h2 style="font-size:1.7rem">Simulacro de parcial</h2><p>Parte 1: 10 choice teóricos. Parte 2: casos con imágenes para describir (macro, micro y diagnóstico).</p></div></div><div class="blk"><div class="eyebrow">Cómo toma la profe</div><p class="prose" style="margin:0">'+SIM.fmt+'</p></div>';
+    h+=SIM.sims.map(function(x){return '<a class="cont" href="#/simulacro/'+x.id+'" style="margin:0 0 12px"><span class="go" style="margin:0;background:var(--sys);color:#fff">'+x.id+'</span><div><b>'+esc(x.title)+'</b><small style="text-transform:none;letter-spacing:0;font-weight:600">'+esc(x.desc)+'</small></div><span class="go">'+ic('chev')+'</span></a>';}).join('');
+    h+='<a class="cont" href="#/simulacro/R" style="margin:0 0 12px"><span class="go" style="margin:0;background:#e8467c;color:#fff">🎲</span><div><b>Simulacro aleatorio</b><small style="text-transform:none;letter-spacing:0;font-weight:600">10 choice de todos los capítulos + 3 casos al azar</small></div><span class="go">'+ic('chev')+'</span></a>';
+    $app.innerHTML=h;
+  });
+}
+function atlasFind(mods,img){for(var i=0;i<mods.length;i++){var M=window.PATO_MOD[mods[i]];if(!M)continue;for(var j=0;j<(M.atlas||[]).length;j++)if(M.atlas[j].img===img)return M.atlas[j];}return null;}
+function randomCases(){
+  var all=['m1','m2','m3','m4','m5','m6'],groups=[];
+  all.forEach(function(m){var A=window.PATO_MOD[m].atlas||[];var by={};A.forEach(function(a){var k=a.dx.replace(/\s*\(.*?\)\s*/g,' ').replace(/:.*$/,'').trim();(by[k]=by[k]||[]).push(a);});Object.keys(by).forEach(function(k){groups.push(by[k].slice(0,2));});});
+  return seeded(groups,Date.now()>>>0).slice(0,3).map(function(g,i){
+    return {title:'Caso '+(i+1),stem:'Observá la(s) imagen(es).',imgs:g.map(function(a){return a.img;}),qs:g.map(function(a){return 'Describí la '+({macro:'macroscopía',micro:'microscopía',cito:'citología'}[a.tipo])+' de la imagen '+'ABC'[g.indexOf(a)]+'.';}).concat(['Diagnóstico presuntivo.']),
+      model:g.map(function(a,j){return '<b>'+'ABC'[j]+' · '+({macro:'Macro',micro:'Micro',cito:'Citología'}[a.tipo])+':</b> '+a.desc;}).join('<br>')+'<br><b>Diagnóstico:</b> '+g[0].dx,check:['Describí la '+g.map(function(a){return a.tipo;}).join(' y la ')+' con términos del material','Diagnóstico: '+g[0].dx.replace(/<[^>]+>/g,'')],src:g.map(function(a){return a.src;}).join(' · ')};});
+}
+function renderSim(id,part){
+  document.documentElement.style.setProperty('--sys','#5b3fd0');
+  $app.innerHTML='<p class="loading">Preparando el simulacro…</p>';
+  loadSim().then(function(SIM){
+    var def=id==='R'?{id:'R',title:'Simulacro aleatorio',mods:['m1','m2','m3','m4','m5','m6']}:SIM.sims.filter(function(x){return x.id===id;})[0];
+    if(!def){renderSimList();return;}
+    return Promise.all(['m1','m2','m3','m4','m5','m6'].map(function(m){return loadMod(m).catch(function(){return null;});})).then(function(){
+      var st=SIMST[id];
+      if(!st){var pool=[];def.mods.forEach(function(m){(window.PATO_MOD[m].theory||[]).forEach(function(q){if(q.lvl>=2||Math.random()<0.4)pool.push(q);});});
+        st=SIMST[id]={qs:seeded(pool,(Date.now()^hash(id))>>>0).slice(0,10),ch:{},done:false,cases:id==='R'?randomCases():def.cases,t0:Date.now(),shown:{}};}
+      drawSim(def,st,part||'1');
+    });
+  });
+}
+function drawSim(def,st,part){
+  var L='ABCD';
+  var tabs='<nav class="snav"><a class="stab" href="#/simulacro">'+ic('back')+'Simulacros</a><a class="stab" href="#/simulacro/'+def.id+'/1" aria-current="'+(part==='1')+'">Parte 1 · Choice</a><a class="stab" href="#/simulacro/'+def.id+'/2" aria-current="'+(part==='2')+'">Parte 2 · Imágenes</a></nav>';
+  var h='<div class="sh"><div><h2>'+esc(def.title)+'</h2><p>'+(part==='1'?'Respondé las 10 y tocá «Entregar» para corregir (como en el parcial: sin ver la respuesta antes).':'Escribí tu descripción como en el parcial y después tocá «Ver respuesta modelo» para autocorregirte.')+'</p></div></div>';
+  if(part==='1'){
+    var ok=0;st.qs.forEach(function(q){if(st.ch[q.id]===q.a)ok++;});
+    if(st.done)h+='<div class="blk" style="text-align:center"><div class="eyebrow">Resultado parte 1</div><b style="font:600 2.2rem var(--serif)">'+ok+' / 10</b><p style="margin:4px 0 0;color:var(--muted)">'+(ok>=6?'¡Aprobado! 💪':'Repasá los errores (quedaron guardados en «Mis errores»)')+'</p><div class="cta" style="justify-content:center;margin-top:10px"><a class="btn sys" href="#/simulacro/'+def.id+'/2">Ir a la parte 2 '+ic('chev')+'</a><button class="btn ghost" id="again">Nuevo sorteo</button></div></div>';
+    h+='<div class="qlist">'+st.qs.map(function(q,i){var opts=seeded(q.o.map(function(t,k){return {t:t,k:k};}),hash(q.id)),ch=st.ch[q.id],cls=st.done?(ch===q.a?' ok':' bad'):'';
+      return '<article class="qcard'+cls+'"><div class="qmeta"><span class="qno">'+(i+1)+'</span><span class="lv">'+esc(q.topic||'')+'</span></div><div class="qt">'+q.q+'</div><div class="opts">'+opts.map(function(o,j){var c='';if(st.done){if(o.k===q.a)c=' ok';else if(o.k===ch)c=' bad';else c=' dim';}else if(o.k===ch)c=' sel';return '<button class="opt'+c+'" data-q="'+q.id+'" data-k="'+o.k+'" '+(st.done?'disabled':'')+'><span class="L">'+L[j]+'</span><span>'+o.t+'</span></button>';}).join('')+'</div>'+(st.done?'<div class="fb '+(ch===q.a?'ok':'bad')+'"><h4>'+(ch===q.a?'✔ Correcto':'✘ Correcta: '+q.o[q.a])+'</h4><p>'+q.why+'</p></div>':'')+'</article>';}).join('')+'</div>';
+    if(!st.done){var n=Object.keys(st.ch).length;h+='<div class="cta" style="justify-content:center;margin-top:16px"><button class="btn sys" id="deliver" '+(n<10?'':'')+'>Entregar ('+n+'/10 respondidas)</button></div>';}
+  } else {
+    h+='<div class="qlist">'+st.cases.map(function(c,i){
+      var shown=st.shown[i];var key=def.id+'.'+i;
+      return '<article class="qcard"><div class="qmeta"><span class="qno">'+(i+1)+'</span><span class="lv">'+esc(c.title)+'</span></div><p class="qt" style="font-weight:600">'+esc(c.stem)+'</p><div class="figs'+(c.imgs.length===1?' one':'')+'">'+c.imgs.map(function(im,j){return '<figure class="fig"><div class="frame"'+zoomAttr(im,null,'Imagen '+'ABC'[j])+'>'+fit(im)+'<span class="zoomhint">'+ic('zoom')+'</span></div><figcaption><b>Imagen '+'ABC'[j]+'</b></figcaption></figure>';}).join('')+'</div><ol style="margin:6px 0 10px;padding-left:1.2em">'+c.qs.map(function(q){return '<li>'+esc(q)+'</li>';}).join('')+'</ol><textarea data-d="'+key+'" rows="6" placeholder="Escribí tu respuesta como en el parcial…" style="width:100%;border:1px solid var(--line2);border-radius:12px;padding:10px;font:inherit;background:var(--card);color:var(--ink)">'+esc(draft(key))+'</textarea>'+
+       (shown?'<div class="fb" style="background:color-mix(in srgb,var(--sys) 8%,var(--card));border:1px solid color-mix(in srgb,var(--sys) 25%,transparent)"><div class="eyebrow">Respuesta modelo</div><p>'+c.model+'</p><p style="margin-top:10px"><b>Autocorrección:</b> marcá lo que pusiste</p>'+c.check.map(function(k,j){return '<label style="display:flex;gap:8px;align-items:flex-start;margin:6px 0"><input type="checkbox" data-c="'+key+'.'+j+'" '+(draft(key+'.'+j)==='1'?'checked':'')+' style="width:20px;height:20px;flex:none;margin-top:2px"><span>'+esc(k)+'</span></label>';}).join('')+'<p class="src">Fuente: '+esc(c.src||'')+'</p></div>':'<div class="cta" style="margin-top:8px"><button class="btn ghost sm" data-show="'+i+'">'+ic('eye')+' Ver respuesta modelo</button></div>')+'</article>';}).join('')+'</div>';
+    h+='<div class="cta" style="justify-content:center;margin-top:16px"><a class="btn ghost" href="#/simulacro">Otro simulacro</a></div>';
+  }
+  $app.innerHTML=tabs+h;window.scrollTo(0,0);
+  $app.querySelectorAll('.opt:not(:disabled)').forEach(function(b){b.onclick=function(){st.ch[b.dataset.q]=+b.dataset.k;var y=window.scrollY;drawSim(def,st,part);window.scrollTo(0,y);};});
+  var dv=document.getElementById('deliver');if(dv)dv.onclick=function(){var n=Object.keys(st.ch).length;if(n<10&&!window.confirm('Te faltan '+(10-n)+' preguntas. ¿Entregar igual?'))return;st.done=true;st.qs.forEach(function(q){if(st.ch[q.id]!=null)record(q,q.id.slice(0,2),'t',st.ch[q.id]);});updateBadge();drawSim(def,st,part);};
+  var ag=document.getElementById('again');if(ag)ag.onclick=function(){delete SIMST[def.id];renderSim(def.id,'1');};
+  $app.querySelectorAll('textarea[data-d]').forEach(function(t){t.oninput=function(){draft(t.dataset.d,t.value);};});
+  $app.querySelectorAll('[data-show]').forEach(function(b){b.onclick=function(){st.shown[+b.dataset.show]=1;var y=window.scrollY;drawSim(def,st,part);window.scrollTo(0,y);};});
+  $app.querySelectorAll('[data-c]').forEach(function(c){c.onchange=function(){draft(c.dataset.c,c.checked?'1':'0');};});
+}
 /* ---------- router ---------- */
 function updateBadge(){var e=document.getElementById('errbadge');if(e){var n=errCount();e.textContent=n;e.hidden=!n;}}
 function route(){
   closeLB();var p=(location.hash.replace(/^#\/?/,'')||'').split('/');
-  if(p[0]==='m'&&p[1])renderModule(p[1],p[2],p[3]);else if(p[0]==='errores')renderErrores();else if(p[0]==='progreso')renderProgreso();else renderHome();
+  if(p[0]==='m'&&p[1])renderModule(p[1],p[2],p[3]);else if(p[0]==='errores')renderErrores();else if(p[0]==='progreso')renderProgreso();else if(p[0]==='simulacro'){if(p[1])renderSim(p[1],p[2]);else renderSimList();}else renderHome();
   updateBadge();
 }
 window.addEventListener('hashchange',route);

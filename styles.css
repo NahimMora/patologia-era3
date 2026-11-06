@@ -289,3 +289,6 @@ main{max-width:1080px;margin:0 auto;padding:18px 16px 96px;outline:none}
 .footer{margin-top:40px;font-size:.76rem;color:var(--muted);text-align:center;line-height:1.5}
 .vh{position:absolute!important;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+.opt.sel{border-color:var(--sys);background:color-mix(in srgb,var(--sys) 10%,var(--card))}.opt.sel .L{background:var(--sys);color:#fff}
+.fig .frame .ov{position:absolute;inset:0}
